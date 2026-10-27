@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>各國年度數據趨勢儀表板 (2016-2025)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Highcharts Scripts (Loaded synchronously without async/defer to ensure ready state) -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">各國年度數據趨勢儀表板</h1>
+                <p class="text-sm text-slate-500 mt-1">分析台灣、越南與泰國 2016 - 2025 年間的數據變化與比較</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="exportTableCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm shadow-sm transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    下載完整數據 CSV
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">當前選擇總計</p>
+                <h3 id="card-total" class="text-2xl font-bold text-slate-800 mt-2">-</h3>
+                <p class="text-xs text-slate-500 mt-1">已選取國家的跨年累計總量</p>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">年度平均值</p>
+                <h3 id="card-avg" class="text-2xl font-bold text-blue-600 mt-2">-</h3>
+                <p class="text-xs text-slate-500 mt-1">選取國家之單年平均數據</p>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">峰值年份 (最高數據)</p>
+                <h3 id="card-peak" class="text-2xl font-bold text-emerald-600 mt-2">-</h3>
+                <p id="card-peak-sub" class="text-xs text-slate-500 mt-1">加總最高之年度與數值</p>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">低谷年份 (最低數據)</p>
+                <h3 id="card-lowest" class="text-2xl font-bold text-rose-600 mt-2">-</h3>
+                <p id="card-lowest-sub" class="text-xs text-slate-500 mt-1">加總最低之年度與數值</p>
+            </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between gap-6">
+            <!-- Chart Type Selectors -->
+            <div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">圖表類型</span>
+                <div class="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50">
+                    <button onclick="changeChartType('line')" id="btn-line" class="px-3 py-1.5 text-xs font-medium rounded-md bg-white text-slate-800 shadow-sm transition">折線圖</button>
+                    <button onclick="changeChartType('column')" id="btn-column" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition">柱狀圖</button>
+                    <button onclick="changeChartType('stacked')" id="btn-stacked" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition">堆疊柱狀圖</button>
+                    <button onclick="changeChartType('area')" id="btn-area" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition">面積圖</button>
+                </div>
+            </div>
+
+            <!-- Country Filter Checkboxes -->
+            <div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">顯示國家篩選</span>
+                <div class="flex flex-wrap items-center gap-4 pt-1">
+                    <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-taiwan" checked onchange="updateDashboard()" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#0097FF]"></span> 台灣 (Taiwan)
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-vietnam" checked onchange="updateDashboard()" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span> 越南 (Vietnam)
+                    </label>
+                    <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-thailand" checked onchange="updateDashboard()" class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 border-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span> 泰國 (Thailand)
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chart -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
+            <div id="container" class="w-full h-[480px]"></div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 overflow-hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">年度明細數據表</h3>
+                <span class="text-xs text-slate-400">數據集 (2016-2025)</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-slate-600">
+                    <thead class="text-xs uppercase bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3">年份</th>
+                            <th class="px-4 py-3 text-right">台灣 (Taiwan)</th>
+                            <th class="px-4 py-3 text-right">越南 (Vietnam)</th>
+                            <th class="px-4 py-3 text-right">泰國 (Thailand)</th>
+                            <th class="px-4 py-3 text-right">年度總計</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-100">
+                        <!-- Dynamic inserted rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// Raw Dataset
+const rawData = {
+    years: ['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'],
+    countries: [
+        { id: 'taiwan', name: '台灣 (Taiwan)', color: '#0097FF', data: [10690279, 10739601, 11066707, 11864105, 1377861, 140479, 895962, 6486951, 7857686, 8574547] },
+        { id: 'vietnam', name: '越南 (Vietnam)', color: '#10B981', data: [10012735, 12922151, 15497791, 18008591, 3837300, 157300, 3661222, 12602434, 17583901, 21168291] },
+        { id: 'thailand', name: '泰國 (Thailand)', color: '#F59E0B', data: [32529588, 35591978, 38178194, 39916251, 6702396, 427869, 11065226, 28150016, 35545714, 32974321] }
+    ]
+};
+
+let currentChartType = 'line';
+let chartInstance = null;
+
+// Format numbers
+function fmt(num) {
+    return new Intl.NumberFormat('zh-TW').format(num);
+}
+
+// Render Data Table
+function renderTable() {
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+    
+    rawData.years.forEach((yr, idx) => {
+        const tw = rawData.countries[0].data[idx];
+        const vn = rawData.countries[1].data[idx];
+        const th = rawData.countries[2].data[idx];
+        const total = tw + vn + th;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+        tr.innerHTML = `
+            <td class="px-4 py-3 font-medium text-slate-900">${yr}</td>
+            <td class="px-4 py-3 text-right">${fmt(tw)}</td>
+            <td class="px-4 py-3 text-right">${fmt(vn)}</td>
+            <td class="px-4 py-3 text-right">${fmt(th)}</td>
+            <td class="px-4 py-3 text-right font-bold text-slate-800">${fmt(total)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Update Metric Summary Cards
+function updateSummaryCards(activeSeries) {
+    if (activeSeries.length === 0) {
+        document.getElementById('card-total').innerText = '0';
+        document.getElementById('card-avg').innerText = '0';
+        document.getElementById('card-peak').innerText = '-';
+        document.getElementById('card-peak-sub').innerText = '請選取國家';
+        document.getElementById('card-lowest').innerText = '-';
+        document.getElementById('card-lowest-sub').innerText = '請選取國家';
+        return;
+    }
+
+    let grandTotal = 0;
+    let totalPoints = 0;
+    const yearlyTotals = new Array(rawData.years.length).fill(0);
+
+    activeSeries.forEach(s => {
+        s.data.forEach((val, idx) => {
+            grandTotal += val;
+            yearlyTotals[idx] += val;
+            totalPoints++;
+        });
+    });
+
+    const average = Math.round(grandTotal / (rawData.years.length));
+
+    // Find peak and lowest year
+    let maxVal = -1, maxYear = '';
+    let minVal = Infinity, minYear = '';
+
+    yearlyTotals.forEach((tot, idx) => {
+        if (tot > maxVal) {
+            maxVal = tot;
+            maxYear = rawData.years[idx];
+        }
+        if (tot < minVal) {
+            minVal = tot;
+            minYear = rawData.years[idx];
+        }
+    });
+
+    document.getElementById('card-total').innerText = fmt(grandTotal);
+    document.getElementById('card-avg').innerText = fmt(average);
+    document.getElementById('card-peak').innerText = maxYear + ' 年';
+    document.getElementById('card-peak-sub').innerText = `年度加總：${fmt(maxVal)}`;
+    document.getElementById('card-lowest').innerText = minYear + ' 年';
+    document.getElementById('card-lowest-sub').innerText = `年度加總：${fmt(minVal)}`;
+}
+
+// Get selected series data
+function getActiveSeries() {
+    const active = [];
+    if (document.getElementById('chk-taiwan').checked) active.push(rawData.countries[0]);
+    if (document.getElementById('chk-vietnam').checked) active.push(rawData.countries[1]);
+    if (document.getElementById('chk-thailand').checked) active.push(rawData.countries[2]);
+    return active;
+}
+
+// Change Chart Type Button Handler
+function changeChartType(type) {
+    currentChartType = type;
+    ['line', 'column', 'stacked', 'area'].forEach(t => {
+        const btn = document.getElementById(`btn-${t}`);
+        if (t === type) {
+            btn.className = "px-3 py-1.5 text-xs font-medium rounded-md bg-white text-slate-800 shadow-sm transition";
+        } else {
+            btn.className = "px-3 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition";
+        }
+    });
+    updateDashboard();
+}
+
+// Render/Update Highcharts
+function updateDashboard() {
+    const activeSeries = getActiveSeries();
+    updateSummaryCards(activeSeries);
+
+    let hcType = currentChartType;
+    let stacking = undefined;
+
+    if (currentChartType === 'stacked') {
+        hcType = 'column';
+        stacking = 'normal';
+    }
+
+    const seriesConfig = activeSeries.map(s => ({
+        name: s.name,
+        data: [...s.data],
+        color: s.color
+    }));
+
+    chartInstance = Highcharts.chart('container', {
+        chart: {
+            type: hcType,
+            style: { fontFamily: 'inherit' },
+            backgroundColor: 'transparent'
+        },
+        title: {
+            text: '年度趨勢比較圖',
+            align: 'left',
+            style: { fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }
+        },
+        xAxis: {
+            categories: rawData.years,
+            crosshair: true,
+            title: { text: '年份' }
+        },
+        yAxis: {
+            title: { text: '數據數量 / 人數' },
+            labels: {
+                formatter: function () {
+                    return Highcharts.numberFormat(this.value, 0, '.', ',');
+                }
+            }
+        },
+        tooltip: {
+            shared: true,
+            useHTML: true,
+            headerFormat: '<span style="font-size: 12px; font-weight: bold; color: #475569;">{point.key} 年</span><table style="width:100%; margin-top: 4px;">',
+            pointFormat: '<tr><td style="color: {series.color}; padding: 3px 8px 3px 0;">{series.name}: </td>' +
+                '<td style="text-align: right; padding: 3px 0;"><b>{point.y:,.0f}</b></td></tr>',
+            footerFormat: '</table>'
+        },
+        plotOptions: {
+            series: {
+                stacking: stacking,
+                marker: { symbol: 'circle', radius: 4 }
+            },
+            area: {
+                fillOpacity: 0.25
+            }
+        },
+        exporting: {
+            enabled: true,
+            buttons: {
+                contextButton: {
+                    menuItems: [
+                        'viewFullscreen',
+                        'separator',
+                        'downloadPNG',
+                        'downloadJPEG',
+                        'downloadPDF',
+                        'downloadSVG',
+                        'separator',
+                        'downloadCSV',
+                        'downloadXLS'
+                    ]
+                }
+            }
+        },
+        credits: { enabled: false },
+        series: seriesConfig
+    });
+}
+
+// CSV Exporter for Data Table
+function exportTableCSV() {
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += "年份,台灣 (Taiwan),越南 (Vietnam),泰國 (Thailand),年度總計\n";
+
+    rawData.years.forEach((yr, idx) => {
+        const tw = rawData.countries[0].data[idx];
+        const vn = rawData.countries[1].data[idx];
+        const th = rawData.countries[2].data[idx];
+        const total = tw + vn + th;
+        csvContent += `${yr},${tw},${vn},${th},${total}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "各國年度數據趨勢_2016-2025.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Safe Initialization Routine with Retry Fallback for Highcharts
+function initDashboard() {
+    if (typeof Highcharts !== 'undefined') {
+        renderTable();
+        updateDashboard();
+    } else {
+        // Fallback retry if Highcharts CDN loading is slightly delayed
+        setTimeout(initDashboard, 100);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+    initDashboard();
+}
+</script>
+
+</body>
+</html>
